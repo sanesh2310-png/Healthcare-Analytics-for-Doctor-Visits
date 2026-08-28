@@ -1,0 +1,70 @@
+""
+generate_sample_data.py
+------------------------
+Creates a small SYNTHETIC doctor-visits dataset purely so you can test-run
+healthcare_analysis.py end-to-end and see real charts come out the other side.
+
+THIS IS NOT YOUR ASSIGNED DATASET. Before submitting, replace
+doctor_visits.csv with the actual dataset you were given, and re-run
+healthcare_analysis.py to produce your real charts.
+"""
+
+import numpy as np
+import pandas as pd
+
+np.random.seed(42)
+n = 2500
+
+departments = ["General Medicine", "Cardiology", "Orthopedics", "Pediatrics", "Dermatology", "ENT"]
+dept_wait_bias = {"General Medicine": 25, "Cardiology": 40, "Orthopedics": 35, "Pediatrics": 20, "Dermatology": 15, "ENT": 22}
+
+diagnoses_by_dept = {
+    "General Medicine": ["Common Cold", "Hypertension", "Diabetes Checkup", "Fever"],
+    "Cardiology": ["Arrhythmia", "Hypertension", "Chest Pain", "Post-Surgery Follow-up"],
+    "Orthopedics": ["Fracture", "Back Pain", "Joint Pain", "Sports Injury"],
+    "Pediatrics": ["Common Cold", "Vaccination", "Fever", "Growth Checkup"],
+    "Dermatology": ["Skin Allergy", "Acne", "Eczema", "Skin Checkup"],
+    "ENT": ["Sinusitis", "Ear Infection", "Throat Infection", "Hearing Checkup"],
+}
+
+visit_types = ["In-Person", "Telehealth"]
+insurance_types = ["Private", "Government", "Self-Pay", "Employer-Sponsored"]
+
+rows = []
+dates = pd.date_range("2024-01-01", "2024-12-31", freq="D")
+
+for i in range(n):
+    dept = np.random.choice(departments)
+    visit_type = np.random.choice(visit_types, p=[0.75, 0.25])
+    diagnosis = np.random.choice(diagnoses_by_dept[dept])
+    insurance = np.random.choice(insurance_types, p=[0.4, 0.3, 0.15, 0.15])
+
+    base_wait = dept_wait_bias[dept]
+    wait_time = max(2, np.random.normal(base_wait if visit_type == "In-Person" else base_wait * 0.4, 10))
+    visit_duration = max(5, np.random.normal(20, 7))
+
+    base_cost = {"General Medicine": 80, "Cardiology": 220, "Orthopedics": 180, "Pediatrics": 70, "Dermatology": 100, "ENT": 90}[dept]
+    cost = max(20, np.random.normal(base_cost, base_cost * 0.25))
+
+    satisfaction = np.clip(np.random.normal(4.2 - (wait_time / 100), 0.6), 1, 5)
+
+    rows.append({
+        "patient_id": i + 1,
+        "age": int(np.clip(np.random.normal(42, 20), 1, 95)),
+        "gender": np.random.choice(["Male", "Female"]),
+        "visit_date": np.random.choice(dates),
+        "department": dept,
+        "doctor_id": np.random.randint(100, 150),
+        "diagnosis": diagnosis,
+        "visit_type": visit_type,
+        "wait_time_minutes": round(wait_time, 1),
+        "visit_duration_minutes": round(visit_duration, 1),
+        "treatment_cost": round(cost, 2),
+        "insurance_type": insurance,
+        "follow_up_required": np.random.choice(["Yes", "No"], p=[0.3, 0.7]),
+        "satisfaction_score": round(satisfaction, 1),
+    })
+
+df = pd.DataFrame(rows)
+df.to_csv("doctor_visits.csv", index=False)
+print(f"Sample dataset created: doctor_visits.csv ({df.shape[0]} rows, {df.shape[1]} columns)")
