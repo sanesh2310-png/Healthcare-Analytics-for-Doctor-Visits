@@ -1,0 +1,167 @@
+ =====================================================
+# Healthcare Analytics for Doctor Visits
+# DIY Project - Data Analysis & Visualization
+# =====================================================
+# Tools: Python, Pandas, NumPy, Matplotlib, Seaborn
+
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_style("whitegrid")
+plt.rcParams["figure.figsize"] = (10, 6)
+os.makedirs("outputs", exist_ok=True)
+
+# -----------------------------------------------------
+# 1. LOAD THE DATASET
+# -----------------------------------------------------
+# Replace with the actual path/filename of the dataset you were given.
+df = pd.read_csv("doctor_visits.csv")
+
+print("Shape of dataset:", df.shape)
+print(df.head())
+print(df.info())
+
+# -----------------------------------------------------
+# 2. DATA CLEANING
+# -----------------------------------------------------
+# NOTE: Column names vary between dataset versions.
+# Adjust the names below to match your actual CSV headers.
+
+expected_cols = [
+    "patient_id", "age", "gender", "visit_date", "department",
+    "doctor_id", "diagnosis", "visit_type", "wait_time_minutes",
+    "visit_duration_minutes", "treatment_cost", "insurance_type",
+    "follow_up_required", "satisfaction_score",
+]
+missing = [c for c in expected_cols if c not in df.columns]
+if missing:
+    print("NOTE: these expected columns were not found - check your CSV headers:", missing)
+
+# Drop identifier columns not needed for analysis
+cols_to_drop = [c for c in ["patient_id", "doctor_id"] if c in df.columns]
+df.drop(columns=cols_to_drop, inplace=True)
+
+# Parse dates
+if "visit_date" in df.columns:
+    df["visit_date"] = pd.to_datetime(df["visit_date"], errors="coerce")
+    df["visit_month"] = df["visit_date"].dt.month_name()
+    df["visit_weekday"] = df["visit_date"].dt.day_name()
+
+# Handle missing values
+df.dropna(subset=["age", "department", "treatment_cost"], inplace=True)
+
+# Remove impossible/outlier values
+df = df[(df["age"] > 0) & (df["age"] < 110)]
+df = df[(df["wait_time_minutes"] >= 0) & (df["wait_time_minutes"] <= 300)]
+df = df[(df["treatment_cost"] > 0) & (df["treatment_cost"] < 5000)]
+
+print("\nShape after cleaning:", df.shape)
+print(df.isnull().sum())
+
+# -----------------------------------------------------
+# 3. SUMMARY STATISTICS
+# -----------------------------------------------------
+print("\nSummary statistics:")
+print(df.describe())
+
+print("\nAverage wait time by department:")
+print(df.groupby("department")["wait_time_minutes"].mean().sort_values(ascending=False))
+
+print("\nVisit count by visit type:")
+print(df["visit_type"].value_counts())
+
+print("\nAverage treatment cost by insurance type:")
+print(df.groupby("insurance_type")["treatment_cost"].mean().sort_values(ascending=False))
+
+# -----------------------------------------------------
+# 4. VISUALIZATIONS
+# -----------------------------------------------------
+
+# 4.1 Age distribution of patients
+plt.figure()
+sns.histplot(df["age"], bins=30, kde=True, color="steelblue")
+plt.title("Age Distribution of Patients")
+plt.xlabel("Age")
+plt.ylabel("Number of Patients")
+plt.tight_layout()
+plt.savefig("outputs/age_distribution.png")
+
+# 4.2 Visits by department
+plt.figure()
+order = df["department"].value_counts().index
+sns.countplot(data=df, y="department", hue="department", order=order, palette="crest", legend=False)
+plt.title("Number of Visits by Department")
+plt.xlabel("Number of Visits")
+plt.ylabel("Department")
+plt.tight_layout()
+plt.savefig("outputs/visits_by_department.png")
+
+# 4.3 Average wait time by department
+plt.figure()
+avg_wait = df.groupby("department")["wait_time_minutes"].mean().sort_values(ascending=False)
+sns.barplot(x=avg_wait.values, y=avg_wait.index, hue=avg_wait.index, palette="mako", legend=False)
+plt.title("Average Wait Time by Department")
+plt.xlabel("Average Wait Time (minutes)")
+plt.ylabel("Department")
+plt.tight_layout()
+plt.savefig("outputs/avg_wait_time_by_department.png")
+
+# 4.4 Treatment cost by insurance type (boxplot)
+plt.figure()
+sns.boxplot(data=df, x="insurance_type", y="treatment_cost", hue="insurance_type", palette="Set2", legend=False)
+plt.title("Treatment Cost by Insurance Type")
+plt.xlabel("Insurance Type")
+plt.ylabel("Treatment Cost ($)")
+plt.xticks(rotation=20)
+plt.tight_layout()
+plt.savefig("outputs/cost_by_insurance_type.png")
+
+# 4.5 Wait time vs. satisfaction score
+plt.figure()
+sns.scatterplot(data=df, x="wait_time_minutes", y="satisfaction_score", hue="visit_type", alpha=0.6)
+plt.title("Wait Time vs. Patient Satisfaction Score")
+plt.xlabel("Wait Time (minutes)")
+plt.ylabel("Satisfaction Score")
+plt.tight_layout()
+plt.savefig("outputs/waittime_vs_satisfaction.png")
+
+# 4.6 Visit type distribution (in-person vs telehealth)
+plt.figure()
+visit_counts = df["visit_type"].value_counts()
+plt.pie(visit_counts.values, labels=visit_counts.index, autopct="%1.1f%%",
+        colors=sns.color_palette("pastel"), startangle=90)
+plt.title("Visit Type Distribution")
+plt.tight_layout()
+plt.savefig("outputs/visit_type_distribution.png")
+
+# 4.7 Top diagnoses
+plt.figure()
+top_diagnoses = df["diagnosis"].value_counts().head(10)
+sns.barplot(x=top_diagnoses.values, y=top_diagnoses.index, hue=top_diagnoses.index, palette="flare", legend=False)
+plt.title("Top 10 Most Common Diagnoses")
+plt.xlabel("Number of Visits")
+plt.ylabel("Diagnosis")
+plt.tight_layout()
+plt.savefig("outputs/top_diagnoses.png")
+
+# 4.8 Correlation heatmap of numeric features
+plt.figure()
+numeric_cols = df.select_dtypes(include=[np.number])
+sns.heatmap(numeric_cols.corr(), annot=True, cmap="coolwarm", fmt=".2f")
+plt.title("Correlation Heatmap of Numeric Features")
+plt.tight_layout()
+plt.savefig("outputs/correlation_heatmap.png")
+
+# -----------------------------------------------------
+# 5. KEY INSIGHTS (printed to console)
+# -----------------------------------------------------
+print("\n--- KEY INSIGHTS ---")
+print(f"Busiest department: {df['department'].value_counts().idxmax()}")
+print(f"Department with longest average wait time: {avg_wait.idxmax()} ({avg_wait.max():.1f} min)")
+print(f"Most common visit type: {df['visit_type'].mode()[0]}")
+print(f"Average treatment cost: ${df['treatment_cost'].mean():.2f}")
+print(f"Average patient satisfaction score: {df['satisfaction_score'].mean():.2f}")
+print(f"Most common diagnosis: {df['diagnosis'].value_counts().idxmax()}")
